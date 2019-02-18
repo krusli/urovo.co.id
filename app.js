@@ -1,8 +1,30 @@
 // Vue SSR
-const Vue = require('vue')
-const renderer = require('vue-server-renderer').createRenderer()
+const Vue = require('vue');
+const fs = require('fs');
 
-// server dependencies
+const getTemplate = filename =>
+  fs.readFileSync(`./templates/${filename}`, 'utf-8');
+
+const renderer = require('vue-server-renderer').createRenderer({
+  template: getTemplate('index.template.html')
+});
+
+const render = async (app, res, context) => {
+  try {
+    let html;
+    if (context) {
+      html = await renderer.renderToString(app, context);
+    } else {
+      html = await renderer.renderToString(app);
+    }
+    res.send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal server error')
+  }
+}
+
+/* Express server */
 const express = require('express');
 const helmet = require('helmet');
 
@@ -10,23 +32,19 @@ const helmet = require('helmet');
 const server = express();
 server.use(helmet());
 
-const render = async (app, res) => {
-  try {
-    const html = await renderer.renderToString(app);
-    res.send(html);
-  } catch (err) {
-    res.status(500).send('Rendering error')
-  }
-}
-
 server.get('*', async (req, res) => {
   const app = new Vue({
     data: {
       url: req.url
     },
-    template: `<div>The visited URL is: {{ url }}</div>`
-  })
-  render(app, res);
+    template: '<div>Hello world.</div>'
+  });
+
+  const context = {
+    title: 'Hello World'
+  }
+  
+  render(app, res, context);
 });
 
 const port = 8080;
